@@ -131,7 +131,7 @@ class UserDelete(graphene.Mutation):
     
 class Mutation(graphene.ObjectType):
     create_user = UserMutation.Field()  
-    update_user = UserUpdate.Field()   
+    update_user = UserUpdate.Field()   #temp
     delete_user = UserDelete.Field()
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
