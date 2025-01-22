@@ -129,9 +129,88 @@ class UserDelete(graphene.Mutation):
         user.delete()
         return UserMutation(user=user)
     
+class ProductMutation(graphene.Mutation):
+    class Arguments:
+        product_name = graphene.String()
+        product_description = graphene.String()
+        product_price = graphene.Int()
+        posted_by = graphene.Int()
+        
+    product = graphene.Field(Producttype)
+
+    @classmethod
+    def mutate(cls, root, info, product_name, product_description, product_price, posted_by):
+        user = User.objects.get(id=posted_by)
+        
+        if user:
+            product = Product(product_name = product_name, product_description = product_description, product_price = product_price, posted_by = user)
+            product.save()
+            return ProductMutation(product=product)
+        else:
+            raise Exception(f"User with id {posted_by} does not exists")
+
+class ProductUpdate(graphene.Mutation):
+    class Arguments:
+        product_id = graphene.Int()
+        product_name = graphene.String()
+        product_description = graphene.String()
+        product_price = graphene.Int()
+        posted_by = graphene.Int()
+        
+    product = graphene.Field(Producttype)
+
+    @classmethod
+    def mutate(cls, root, info, product_id, product_name=None, product_description=None, product_price=None, posted_by=None):
+        
+        product = Product.objects.filter(id=product_id).first()
+        if not product:
+            raise Exception(f"Product with id {product_id} does not exist.")
+
+        user = User.objects.filter(id=posted_by).first()
+        if not user:
+            raise Exception(f"User with id {posted_by} does not exist.")
+        
+        if product.posted_by.id != posted_by:
+            raise Exception(f"User with id {posted_by} is not the owner of this ad")
+
+        if product_name:
+            product.product_name = product_name
+        if product_description:
+            product.product_description = product_description
+        if product_price:
+            product.product_price = product_price
+        product.save()
+
+        return ProductUpdate(product=product)
+    
+class ProductDelete(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        user_id = graphene.ID()
+    product = graphene.Field(Producttype)
+
+    @classmethod   
+    def mutate(cls, root, info, id, user_id):
+        product = Product.objects.filter(id=id).first()
+        user = User.objects.filter(id=user_id).first()
+
+        if not product:
+            raise Exception(f"product with this id does not exists: {id}")
+        
+        if product.posted_by.id != user.id:
+            raise Exception(f"User with id {user_id} is not the owner of this ad")
+
+        product = Product.objects.get(id=id) 
+        product.delete()
+        return True
+    
 class Mutation(graphene.ObjectType):
     create_user = UserMutation.Field()  
-    update_user = UserUpdate.Field()   #temp
+    update_user = UserUpdate.Field()   
     delete_user = UserDelete.Field()
+
+    create_product = ProductMutation.Field()
+    update_product = ProductUpdate.Field()
+    delete_product = ProductDelete.Field()
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
