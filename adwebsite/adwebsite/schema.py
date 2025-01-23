@@ -203,7 +203,96 @@ class ProductDelete(graphene.Mutation):
         product = Product.objects.get(id=id) 
         product.delete()
         return True
+
+class MessageMutation(graphene.Mutation):
+    class Arguments:
+        message = graphene.String()
+        sent_to = graphene.Int()
+        sent_by = graphene.Int()
+        product_id = graphene.Int()
+
+        
+    message = graphene.Field(Messagetype)
+
+    @classmethod
+    def mutate(cls, root, info, message, sent_by, sent_to, product_id):
+        sending_user = User.objects.filter(id=sent_by).first()
+        receiving_user = User.objects.filter(id=sent_to).first()
+        product = Product.objects.filter(id=product_id).first()
+
+        if not sending_user:
+            raise Exception(f"User with id {sent_by} does not exist")
+        if not receiving_user:
+            raise Exception(f"User with id {sent_to} does not exist")
+
+        if sending_user.id == receiving_user.id:
+            raise Exception(f"User cannot message to self")
+
+        if not product:
+            raise Exception(f"Product with id {product_id} does not exist")
+        
+        if product.posted_by.id != receiving_user.id:
+            raise Exception(f"Product with id {product_id} is not posted by the receiving user")
+
+        message = Chat(message=message, sent_by=sending_user.id, sent_to=receiving_user, product_id=product)
+        message.save()
+        return MessageMutation(message=message)
     
+class MessageUpdate(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        message = graphene.String()
+        user_id = graphene.Int()
+        product_id = graphene.Int()
+     
+    chat = graphene.Field(Messagetype)
+
+    @classmethod
+    def mutate(cls, root, info, id, message, user_id, product_id):
+        chat = Chat.objects.filter(id=id).first()
+        sending_user = User.objects.filter(id=user_id).first()
+        product = Product.objects.filter(id=product_id).first()
+
+        if not chat:
+            raise Exception(f"Message with id {id} does not exist")
+        
+        if not sending_user:
+            raise Exception(f"User with id {sending_user} does not exist")
+        
+        if not product:
+            raise Exception(f"Product with id {product_id} does not exist")
+
+        if sending_user.id != chat.sent_by:
+            raise Exception(f"You cannot update this message")
+
+        if message:
+            chat.message = message
+        chat.save()
+
+        return MessageUpdate(chat=chat)
+
+class MessageDelete(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID()
+        user_id = graphene.ID()
+    
+    chat = graphene.Field(Messagetype)
+
+    @classmethod   
+    def mutate(cls, root, info, id, user_id):
+        chat = Chat.objects.filter(id=id).first()
+        user = User.objects.filter(id=user_id).first()
+
+        if not chat:
+            raise Exception(f"Message with this id does not exists: {id}")
+        
+        if chat.sent_by != user.id:
+            raise Exception(f"User with id {user_id} is not the owner of this message")
+
+        message = Chat.objects.get(id=id) 
+        message.delete()
+        return True
+        
 class Mutation(graphene.ObjectType):
     create_user = UserMutation.Field()  
     update_user = UserUpdate.Field()   
@@ -212,5 +301,9 @@ class Mutation(graphene.ObjectType):
     create_product = ProductMutation.Field()
     update_product = ProductUpdate.Field()
     delete_product = ProductDelete.Field()
+
+    create_message = MessageMutation.Field()
+    update_message = MessageUpdate.Field()
+    delete_message = MessageDelete.Field()
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
