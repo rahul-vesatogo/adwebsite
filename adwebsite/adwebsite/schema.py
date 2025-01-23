@@ -3,6 +3,7 @@ from graphql import GraphQLError
 from graphene_django import DjangoObjectType
 from adwebsite.models import Product, User, Chat
 from django.contrib.auth.hashers import make_password
+from graphql_jwt.decorators import login_required
 
 class Usertype(DjangoObjectType):
     class Meta:
@@ -26,6 +27,7 @@ class Query(graphene.ObjectType):
     read_product = graphene.List(Producttype, userid=graphene.Int())
     read_message = graphene.List(Messagetype, sentby=graphene.Int(), sentto=graphene.Int())
 
+    @login_required
     def resolve_list_users(root, info):
         users = User.objects.all()
         if users:
