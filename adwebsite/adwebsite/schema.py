@@ -3,6 +3,8 @@ from graphql import GraphQLError
 from graphene_django import DjangoObjectType
 from adwebsite.models import Product, User, Chat
 from django.contrib.auth.hashers import make_password
+from graphql_jwt.decorators import login_required
+from graphql_jwt.decorators import superuser_required
 
 class Usertype(DjangoObjectType):
     class Meta:
@@ -26,13 +28,15 @@ class Query(graphene.ObjectType):
     read_product = graphene.List(Producttype, userid=graphene.Int())
     read_message = graphene.List(Messagetype, sentby=graphene.Int(), sentto=graphene.Int())
 
+    @superuser_required
     def resolve_list_users(root, info):
         users = User.objects.all()
         if users:
             return users
         else:
             raise Exception(f"No Users registered")
-    
+        
+    @login_required
     def resolve_list_products(root, info):
         products = Product.objects.all()
         if products:
@@ -40,6 +44,7 @@ class Query(graphene.ObjectType):
         else:
             raise Exception(f"No products posted for any users")
     
+    @login_required
     def resolve_list_messages(root, info):
         chats = Chat.objects.all()
         if chats:
@@ -47,6 +52,7 @@ class Query(graphene.ObjectType):
         else:
             raise Exception(f"No messages registered")
     
+    @login_required
     def resolve_read_product(root, info, userid):
         products = Product.objects.filter(posted_by=userid)
         if products:
@@ -55,6 +61,7 @@ class Query(graphene.ObjectType):
             user = User.objects.get(id=userid)
             raise Exception(f"No products posted by the user: {user.username}")
     
+    @login_required
     def resolve_read_message(root, info, sentby, sentto):
         chats = Chat.objects.filter(sent_by=sentby, sent_to=sentto)
         if chats:
@@ -85,7 +92,7 @@ class UserMutation(graphene.Mutation):
         user = User(username=username, email=email, password=make_password(password))
         user.save()
         return UserMutation(user=user)
-    
+     
 class UserUpdate(graphene.Mutation):
     class Arguments:
         id = graphene.ID() 
@@ -128,7 +135,7 @@ class UserDelete(graphene.Mutation):
         user = User.objects.get(id=id) 
         user.delete()
         return UserMutation(user=user)
-    
+ 
 class ProductMutation(graphene.Mutation):
     class Arguments:
         product_name = graphene.String()
@@ -182,7 +189,7 @@ class ProductUpdate(graphene.Mutation):
         product.save()
 
         return ProductUpdate(product=product)
-    
+
 class ProductDelete(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -237,7 +244,7 @@ class MessageMutation(graphene.Mutation):
         message = Chat(message=message, sent_by=sending_user.id, sent_to=receiving_user, product_id=product)
         message.save()
         return MessageMutation(message=message)
-    
+
 class MessageUpdate(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
@@ -270,7 +277,7 @@ class MessageUpdate(graphene.Mutation):
         chat.save()
 
         return MessageUpdate(chat=chat)
-
+    
 class MessageDelete(graphene.Mutation):
     class Arguments:
         id = graphene.ID()
